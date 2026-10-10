@@ -33,83 +33,50 @@ Use the following commands to build the data file, which connects to the data on
 >>>> cd Raw
 >>>> register-data pkufarm212 /home/user/workdir/TestData
 ```
-## 2. Connect Data, Algorithm and Task
+## 2. Connect Data and Task
 
-We need an algorithm and a corresponding task to process the data. First,
-### Create an algorithm
-Create a new algorithm in the project folder:
+We need a task to process the data.
+### Create a task
+Create a new task in the project folder:
 ```celebi
->>>> create-algorithm filter0
+>>>> create-task filter0
 ```
-Create a `filter0.py` program inside the `filter0` directory and edit the YAML file in `filter0`:
+Create a `filter0.py` program inside the `filter0` directory and add `commands` to the YAML file in `filter0`:
 ```yaml
-environment: script
 commands:
-  - python3 code/filter0.py
+- python3 filter0.py
+descriptor: filter0
+environment: env_root_6.38.04
+memory_limit: 256Mi
 ```
 `Commands`: These are the commands that will be 
 executed when running the workflow. Note that a dash (`-`) followed by a space must precede each command.
-The code folder will be explained later.
-### Create a task
-Create a task that will execute the workflow:
+
+
+Add the input data to the task:
 
 ```celebi
->>>> create-task filter0_task
-```
-
-Add the corresponding algorithm and input data:
-
-```celebi
->>>> cd filter0_task
->>>> add-algorithm ../filter0
+>>>> cd filter0
 >>>> add-input ../Raw raw_data
 ```
 
-The name of the input data ("raw_data" here) is arbitrary since different
-data can be added to the same task. 
+Here we create a new name for the input data ("raw_data" here), which is only for the task and can be arbitrary.
+The new name is to ensure that even if we change the names or relative addresses of the tasks or data, 
+the workflow we have defined can remain unchanged.
 
 To remove the input data when you change your mind, use
 ```celebi
 >>>> remove-input raw_data
 ```
 Notice that you should use the new name of the input.
-### Understanding Impressions
 
-After running the workflow, the algorithm, data, and task will be stored as **impressions** in different folders in the repository on the server:
-
-1. **Algorithm impression**: Contains only the Python file.
-2. **Data impression**: Contains the raw data (in the `stageout` folder) and empty logs (in the `logs` folder).
-3. **Task impression**: Contains the following:
-   - `code/` folder — contains all the programs.
-   - `logs/` folder — contains the execution logs.
-   - `data/` folder — named after your input data (e.g., `raw_data`), linking to the data impression.
-   - `stageout/` folder — contains output files.
-
-Therefore, the task can run the program in the `code/` folder (hence `code/filter0.py` in the command) 
-and use data from `raw_data/stageout`. When writing the program, ensure:
+After we `add-input` to `filter0`, a basic workflow has been set up. To enable the `filter0.py` can get input data and create output files,
+ensure:
 - The input folder is `raw_data/stageout`
 - The output folder is `stageout`
 
-### View the Workflow
-Use ``ls`` in the task folder to see the workflow you just built:
-```celebi
->>>> ls
->>>> DITE: [connected]
-README: 
-Please write README for task filter0_task
-o--> Predecessors:
-[0] (algorithm)  code    : @/filter0
-[1] (task)       raw_data: @/TestData
-Environment: env_root_6.38.04
-Memory limit: 256Mi
-Validated: True
-Cache on runner: True
-Default runner: pkufarm212
----- Algorithm files:
-code:filter0.py    
----- Commands:
-python3 code/filter0.py
-```
+Because, from the point of view of `filter0.py`, the input files are in `raw_data/stageout`, and it will create output files in `stageout`.
+
 
 ## 3. Run the Workflow
 ### Set the Environment
@@ -123,6 +90,50 @@ Conda environments on 'pkufarm212' (3):
 ```
 
 Copy `env_root_6.38.04` to the YAML file of the task.
+
+To set a default environment for the project, type
+```celebi
+[Celebi][B02K3pi][.]
+>>>> user-config
+```
+you'll see:
+```
+# Celebi user configuration.
+#
+# The values below are the built-in defaults. Change one to override
+# it, or delete its line to fall back to the default.
+
+# Editor used by `config`, `edit-script` and `readme`.
+editor: vi
+
+# Program used to open a local file, e.g. by `view local:...`.
+file_opener: xdg-open
+
+# Command used to open a URL. Leave empty to use the system default browser.
+browser: ''
+
+# Runner assigned to newly created tasks. Existing tasks keep whatever they
+# were created with.
+default_runner: pkufarm212
+
+# Whether newly created tasks download their outputs automatically.
+auto_download: true
+
+# Whether newly created tasks cache their results on the runner.
+cache_on_runner: true
+
+# Directory where `draw-dag` writes its output.
+dag_output_dir: ~/Downloads
+
+# Environment written into a new task's celebi.yaml. Changing this changes
+# the impression of tasks created afterwards.
+task_environment: env_root_6.38.04
+
+# Environment written into a new algorithm's celebi.yaml.
+algorithm_environment: script
+```
+
+Change `task_environment` and save it, then every task will use this environment.
 ### Configure the Runner
 If "Cache on runner" is `False`, enable it:
 
@@ -132,6 +143,25 @@ If "Cache on runner" is `False`, enable it:
 If there is no runner configured, request one:
 ```celebi
 >>>> request-runner pkufarm212
+```
+### View the Workflow
+Use ``ls`` in the task folder to see the workflow you just built:
+```celebi
+>>>> ls
+>>>> DITE: [connected]
+README: 
+Please write README for task filter0
+o--> Predecessors:
+[0] (task)       raw_data: @/TestData
+---- Task files:
+filter0.py
+Environment: env_root_6.38.04
+Memory limit: 256Mi
+Validated: True
+Request runner: pkufarm212
+Request cache: True
+---- Commands:
+python3 filter0.py
 ```
 ### Submit the Job
 When everything is ready, submit the task:
@@ -153,6 +183,8 @@ Workflow: [pkufarm212][494f0f6c61b34204b2e8910404c772e9]
 Stageout files:
     (nothing to show yet — run 'collect', or the runner may be unreachable)
 ```
+To see realtime log, type `log -f`, and the log will display below.
+
 When the job is finished, the status will show:
 ```celebi
 >>>> status
@@ -175,23 +207,15 @@ Stageout files:
     25c4_up_cut0.root             442.7 MB  data   ✗
 ```
 
-To see the output, go to:
-```text
-/home/zouqt/workdir/celebi_ssh_runner/workflows/5668ba0decc3482a897e8f4e0e8566ba/494f0f6c61b34204b2e8910404c772e9/imp9017b60/stageout
-```
-Note: The `imp9017b60` segment in the path represents the task impression, which is nested within the workflow impression `494f0f6c61b34204b2e8910404c772e9`.
 
-You can use `log` to review the log and `log -f` to see the current output.
+You can use `log` to review the log. 
 ### Visualize the Workflow
 Run the following command to generate a sketch of the workflow:
 ```celebi
 >>>> draw-dag-graphviz
 ```
-<img width="1265" height="782" alt="17dd2ab446ac3fe6053b6ccb08003bbe" src="https://github.com/user-attachments/assets/83c638bf-3ad9-4579-b015-5cfb2bcdb0da" />
-If you want to omit the corresponding algorithms, use
-```celebi
-draw-dag-graphviz -x -L
-```
+<img width="1764" height="822" alt="image" src="https://github.com/user-attachments/assets/8528a658-381c-43e8-82e1-692ccbd70f72" />
+
 
 Note: If you don't have Graphviz installed, install it in WSL using:
 ```celebi
